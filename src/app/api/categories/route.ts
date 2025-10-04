@@ -1,32 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Category from '@/models/Category';
+import BlogPost from '@/models/BlogPost';
 import { requireAuth } from '@/utils/auth';
-import { generateSlug } from '@/utils/seo';
 
-// Force Node.js runtime (required for JWT and crypto)
 export const runtime = 'nodejs';
 
-// GET /api/categories - Public endpoint for fetching categories
+// GET /api/categories - Get all categories
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-
+    
     const { searchParams } = new URL(request.url);
     const includeEmpty = searchParams.get('includeEmpty') === 'true';
-
-    const query = includeEmpty ? {} : { postCount: { $gt: 0 } };
-
-    const categories = await Category.find(query)
-      .sort({ postCount: -1, name: 1 })
-      .lean();
+    
+    let categories;
+    
+    if (includeEmpty) {
+      // Get all categories, including those with no posts
+      categories = await Category.find({}).sort({ name: 1 });
+    } else {
+      // Get categories with post counts
+      categories = await Category.aggregate([
+        {
+          $lookup: {
+            from: 'blogposts',
+            localField: '_id',
+            foreignField: 'categories',
+            as: 'posts'
+          }
+        },
+        {
+          $addFields: {
+            postCount: { $size: '$posts' }
+          }
+        },
+        {
+          $match: {
+            postCount: { $gt: 0 }
+          }
+        },
+        {
+          $sort: { name: 1 }
+        }
+      ]);
+    }
 
     return NextResponse.json({
       success: true,
       categories: categories,
     });
-  } catch (error) {
-    console.error('Get categories error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Get categories error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -38,34 +64,34 @@ export async function GET(request: NextRequest) {
 export const POST = requireAuth(async (request: NextRequest) => {
   try {
     await connectDB();
-
-    const categoryData = await request.json();
+    
+    const { name, slug, description } = await request.json();
 
     // Validate required fields
-    const { name } = categoryData;
-    if (!name) {
+    if (!name || !slug) {
       return NextResponse.json(
-        { error: 'Category name is required' },
+        { error: 'Name and slug are required' },
         { status: 400 }
       );
     }
 
-    // Generate slug if not provided
-    if (!categoryData.slug) {
-      categoryData.slug = generateSlug(name);
-    }
+    const category = new Category({
+      name,
+      slug,
+      description,
+    });
 
-    const category = new Category(categoryData);
     await category.save();
 
     return NextResponse.json({
       success: true,
       category: category,
     }, { status: 201 });
-  } catch (error) {
-    console.error('Create category error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Create category error:', err);
     
-    if (error.code === 11000) {
+    if (err?.code === 11000) {
       return NextResponse.json(
         { error: 'A category with this name or slug already exists' },
         { status: 400 }
@@ -78,4 +104,3 @@ export const POST = requireAuth(async (request: NextRequest) => {
     );
   }
 });
-

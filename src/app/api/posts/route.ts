@@ -96,29 +96,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GET /api/posts/trending - Trending posts in last 24h
-export async function GETTrending(request: NextRequest) {
-  try {
-    await connectDB();
-    const now = new Date();
-    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const posts = await BlogPost.find({
-      status: 'published',
-      'trending.isTrending': true,
-      'trending.trendingAt': { $gte: since },
-    })
-      .populate('author', 'name avatar bio')
-      .populate('categories', 'name slug')
-      .sort({ 'trending.trendingAt': -1 })
-      .lean();
-    return NextResponse.json({ success: true, data: posts });
-  } catch (error: unknown) {
-    const err = error as any;
-    console.error('Get trending posts error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
 // POST /api/posts - Create new post (Admin only)
 export const POST = requireAuth(async (request: NextRequest) => {
   try {
@@ -174,4 +151,3 @@ export const POST = requireAuth(async (request: NextRequest) => {
     );
   }
 });
-

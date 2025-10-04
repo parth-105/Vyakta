@@ -57,7 +57,7 @@ export default function BlogCard({ post, featured = false, variant = 'standard' 
       <div className="p-6">
         {/* Meta Information */}
         <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-          {post.author && (
+          {post.author && typeof post.author === 'object' && (post.author as any).name && (
             <div className="flex items-center space-x-1">
               <User className="w-4 h-4" />
               <span>{(post.author as any).name}</span>
@@ -172,4 +172,3 @@ export default function BlogCard({ post, featured = false, variant = 'standard' 
     </article>
   );
 }
-

@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/models/BlogPost';
+import User from '@/models/User';
 import { requireAuth } from '@/utils/auth';
-import { calculateSEOScore, generateSlug } from '@/utils/seo';
+import { calculateSEOScore } from '@/utils/seo';
 
-// Force Node.js runtime (required for JWT and crypto)
 export const runtime = 'nodejs';
 
-// GET /api/posts/[slug] - Public endpoint for fetching single post
+// GET /api/posts/[slug] - Get single post
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
   try {
     await connectDB();
-
-    const { slug } = params;
-
-    const post = await BlogPost.findOne({ slug, status: 'published' })
+    
+    // Ensure the User model is registered before populate calls
+    User;
+    
+    const post = await BlogPost.findOne({ slug: params.slug, status: 'published' })
       .populate('author', 'name avatar bio socialLinks')
       .populate('categories', 'name slug description')
       .lean();
@@ -30,14 +31,15 @@ export async function GET(
     }
 
     // Increment view count (fire and forget)
-    BlogPost.findByIdAndUpdate(post._id, { $inc: { views: 1 } }).exec();
+    BlogPost.findByIdAndUpdate((post as any)._id, { $inc: { views: 1 } }).exec();
 
     return NextResponse.json({
       success: true,
       data: post,
     });
-  } catch (error) {
-    console.error('Get post error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Get post error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -52,43 +54,59 @@ export const PUT = requireAuth(async (
 ) => {
   try {
     await connectDB();
-
-    const { slug } = params;
+    
+    const user = (request as any).user;
     const updateData = await request.json();
-
-    // Generate slug if title changed and no slug provided
-    if (updateData.title && !updateData.slug) {
-      updateData.slug = generateSlug(updateData.title);
-    }
-
-    // Calculate SEO score if content changed
-    if (updateData.title || updateData.content || updateData.metaDescription) {
-      updateData.seoScore = calculateSEOScore(updateData);
-    }
-
-    const post = await BlogPost.findOneAndUpdate(
-      { slug },
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate('author', 'name avatar bio')
-      .populate('categories', 'name slug');
-
-    if (!post) {
+    
+    // Find the post
+    const existingPost = await BlogPost.findOne({ slug: params.slug });
+    
+    if (!existingPost) {
       return NextResponse.json(
         { error: 'Post not found' },
         { status: 404 }
       );
     }
 
+    // Check if user is the author or admin
+    if (existingPost.author.toString() !== user.userId && user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized to update this post' },
+        { status: 403 }
+      );
+    }
+
+    // Calculate SEO score if content changed
+    if (updateData.title || updateData.content || updateData.metaDescription) {
+      updateData.seoScore = calculateSEOScore({
+        ...existingPost.toObject(),
+        ...updateData,
+      });
+    }
+
+    // Handle trending logic
+    if (updateData.trending && updateData.trending.isTrending) {
+      updateData.trending.trendingAt = new Date();
+    } else if (updateData.trending) {
+      updateData.trending.trendingAt = undefined;
+    }
+
+    const post = await BlogPost.findOneAndUpdate(
+      { slug: params.slug },
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('author', 'name avatar bio')
+     .populate('categories', 'name slug');
+
     return NextResponse.json({
       success: true,
       data: post,
     });
-  } catch (error) {
-    console.error('Update post error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Update post error:', err);
     
-    if (error.code === 11000) {
+    if (err?.code === 11000) {
       return NextResponse.json(
         { error: 'A post with this slug already exists' },
         { status: 400 }
@@ -109,11 +127,12 @@ export const DELETE = requireAuth(async (
 ) => {
   try {
     await connectDB();
-
-    const { slug } = params;
-
-    const post = await BlogPost.findOneAndDelete({ slug });
-
+    
+    const user = (request as any).user;
+    
+    // Find the post
+    const post = await BlogPost.findOne({ slug: params.slug });
+    
     if (!post) {
       return NextResponse.json(
         { error: 'Post not found' },
@@ -121,16 +140,26 @@ export const DELETE = requireAuth(async (
       );
     }
 
+    // Check if user is the author or admin
+    if (post.author.toString() !== user.userId && user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized to delete this post' },
+        { status: 403 }
+      );
+    }
+
+    await BlogPost.findByIdAndDelete(post._id);
+
     return NextResponse.json({
       success: true,
       message: 'Post deleted successfully',
     });
-  } catch (error) {
-    console.error('Delete post error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Delete post error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 });
-

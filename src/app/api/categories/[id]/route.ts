@@ -1,37 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Category from '@/models/Category';
+import BlogPost from '@/models/BlogPost';
 import { requireAuth } from '@/utils/auth';
-import { generateSlug } from '@/utils/seo';
 
-// Force Node.js runtime (required for JWT and crypto)
 export const runtime = 'nodejs';
 
-// PUT /api/categories/[id] - Update category (Admin only)
-export const PUT = requireAuth(async (request: NextRequest, { params }: { params: { id: string } }) => {
+// GET /api/categories/[id] - Get single category
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     await connectDB();
+    
+    const category = await Category.findById(params.id);
+    
+    if (!category) {
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 404 }
+      );
+    }
 
-    const categoryData = await request.json();
-    const { id } = params;
+    return NextResponse.json({
+      success: true,
+      category: category,
+    });
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Get category error:', err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/categories/[id] - Update category (Admin only)
+export const PUT = requireAuth(async (
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) => {
+  try {
+    await connectDB();
+    
+    const updateData = await request.json();
+    const { name, slug, description } = updateData;
 
     // Validate required fields
-    const { name } = categoryData;
-    if (!name) {
+    if (!name || !slug) {
       return NextResponse.json(
-        { error: 'Category name is required' },
+        { error: 'Name and slug are required' },
         { status: 400 }
       );
     }
 
-    // Generate slug if not provided or if name changed
-    if (!categoryData.slug) {
-      categoryData.slug = generateSlug(name);
-    }
-
     const category = await Category.findByIdAndUpdate(
-      id,
-      categoryData,
+      params.id,
+      { name, slug, description },
       { new: true, runValidators: true }
     );
 
@@ -46,10 +73,11 @@ export const PUT = requireAuth(async (request: NextRequest, { params }: { params
       success: true,
       category: category,
     });
-  } catch (error) {
-    console.error('Update category error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Update category error:', err);
     
-    if (error.code === 11000) {
+    if (err?.code === 11000) {
       return NextResponse.json(
         { error: 'A category with this name or slug already exists' },
         { status: 400 }
@@ -64,13 +92,24 @@ export const PUT = requireAuth(async (request: NextRequest, { params }: { params
 });
 
 // DELETE /api/categories/[id] - Delete category (Admin only)
-export const DELETE = requireAuth(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = requireAuth(async (
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) => {
   try {
     await connectDB();
+    
+    // Check if category has posts
+    const postsCount = await BlogPost.countDocuments({ categories: params.id });
+    
+    if (postsCount > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete category with existing posts' },
+        { status: 400 }
+      );
+    }
 
-    const { id } = params;
-
-    const category = await Category.findByIdAndDelete(id);
+    const category = await Category.findByIdAndDelete(params.id);
 
     if (!category) {
       return NextResponse.json(
@@ -83,8 +122,9 @@ export const DELETE = requireAuth(async (request: NextRequest, { params }: { par
       success: true,
       message: 'Category deleted successfully',
     });
-  } catch (error) {
-    console.error('Delete category error:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Delete category error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
