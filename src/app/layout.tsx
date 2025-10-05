@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { WebsiteStructuredData, OrganizationStructuredData } from '@/components/SEO/StructuredData';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -97,6 +99,9 @@ export default function RootLayout({
         <div className="min-h-screen bg-white">
           {children}
         </div>
+        {/* Vercel Analytics */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

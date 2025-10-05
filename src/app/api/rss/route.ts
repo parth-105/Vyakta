@@ -6,7 +6,9 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    // Normalize base URL to avoid double slashes
+    const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const siteUrl = rawSiteUrl.replace(/\/$/, '');
     const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Blog Site Claude';
     const siteDescription = process.env.NEXT_PUBLIC_SITE_DESCRIPTION || 'A production-ready, A platform for ideas, stories, and wisdom—blending modern blogging with timeless knowledge.';
 
@@ -23,12 +25,12 @@ export async function GET(request: NextRequest) {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${siteName}</title>
-    <description>${siteDescription}</description>
+    <description><![CDATA[${siteDescription}]]></description>
     <link>${siteUrl}</link>
     <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml"/>
     <language>en-us</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <generator>Next.js A platform for ideas, stories, and wisdom—blending modern blogging with timeless knowledge.</generator>
+    <generator><![CDATA[Next.js ${siteDescription}]]></generator>
     
     ${posts.map(post => {
       const published = post.publishedAt ? new Date(post.publishedAt).toUTCString() : new Date(post.updatedAt || Date.now()).toUTCString();
