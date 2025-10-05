@@ -89,9 +89,25 @@ async function getBlogData(searchParams: SearchParams) {
       .limit(limit)
       .lean(),
     BlogPost.countDocuments(query),
-    Category.find({ postCount: { $gt: 0 } })
-      .sort({ postCount: -1 })
-      .lean(),
+    // Compute live category counts to avoid stale postCount values
+    Category.aggregate([
+      {
+        $lookup: {
+          from: 'blogposts',
+          localField: '_id',
+          foreignField: 'categories',
+          as: 'posts',
+        },
+      },
+      {
+        $addFields: {
+          postCount: { $size: '$posts' },
+        },
+      },
+      { $match: { postCount: { $gt: 0 } } },
+      { $project: { name: 1, slug: 1, description: 1, postCount: 1 } },
+      { $sort: { postCount: -1, name: 1 } },
+    ]),
   ]);
 
   const totalPages = Math.ceil(total / limit);

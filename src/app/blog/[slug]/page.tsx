@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/models/BlogPost';
 import User from '@/models/User';
+import Category from '@/models/Category';
 import { generateArticleStructuredData, generateBreadcrumbStructuredData } from '@/utils/seo';
 import { BreadcrumbStructuredData } from '@/components/SEO/StructuredData';
 import Header from '@/components/Layout/Header';
@@ -28,6 +29,7 @@ async function getBlogPost(slug: string) {
   await connectDB();
   // Ensure the User model is registered before populate calls
   User;
+  Category;
 
   const post = await BlogPost.findOne({ slug, status: 'published' })
     .populate('author', 'name avatar bio socialLinks')
