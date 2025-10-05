@@ -310,7 +310,7 @@ export default function AboutPage() {
                 <div className="group text-center p-6 rounded-2xl bg-white border border-gray-100 hover:border-primary-200 hover:shadow-soft transition-all duration-300 hover:-translate-y-1">
                   <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
                     <Heart className="w-8 h-8 text-white" />
-                  </div>
+                </div>
                   <div className="text-xl font-bold text-gray-900 mb-2">Reader-Focused</div>
                   <p className="text-sm text-gray-600">Value-driven content</p>
                 </div>
@@ -318,7 +318,7 @@ export default function AboutPage() {
                 <div className="group text-center p-6 rounded-2xl bg-white border border-gray-100 hover:border-accent-200 hover:shadow-soft transition-all duration-300 hover:-translate-y-1">
                   <div className="w-16 h-16 bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
                     <Sparkles className="w-8 h-8 text-white" />
-                  </div>
+                </div>
                   <div className="text-xl font-bold text-gray-900 mb-2">Fresh Content</div>
                   <p className="text-sm text-gray-600">Regular updates</p>
                 </div>

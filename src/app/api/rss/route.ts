@@ -30,15 +30,18 @@ export async function GET(request: NextRequest) {
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <generator>Next.js A platform for ideas, stories, and wisdom—blending modern blogging with timeless knowledge.</generator>
     
-    ${posts.map(post => `
+    ${posts.map(post => {
+      const published = post.publishedAt ? new Date(post.publishedAt).toUTCString() : new Date(post.updatedAt || Date.now()).toUTCString();
+      return `
     <item>
       <title><![CDATA[${post.title}]]></title>
       <description><![CDATA[${post.metaDescription}]]></description>
       <link>${siteUrl}/blog/${post.slug}</link>
       <guid isPermaLink="true">${siteUrl}/blog/${post.slug}</guid>
-      <pubDate>${post.publishedAt.toUTCString()}</pubDate>
+      <pubDate>${published}</pubDate>
       <author>${post.author?.name || 'Anonymous'}</author>
-    </item>`).join('')}
+    </item>`;
+    }).join('')}
   </channel>
 </rss>`;
 

@@ -68,13 +68,20 @@ async function getHomePageData() {
 }
 
 async function getTrendingBlogs() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/posts/trending`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data || [];
+  // Query DB directly to avoid production base URL/env issues
+  await connectDB();
+  const now = new Date();
+  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const posts = await BlogPost.find({
+    status: 'published',
+    'trending.isTrending': true,
+    'trending.trendingAt': { $gte: since },
+  })
+    .populate('author', 'name avatar bio')
+    .populate('categories', 'name slug')
+    .sort({ 'trending.trendingAt': -1 })
+    .lean();
+  return JSON.parse(JSON.stringify(posts));
 }
 
 export default async function HomePage() {
